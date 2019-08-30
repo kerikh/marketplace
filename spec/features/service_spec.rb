@@ -5,9 +5,28 @@ require "rails_helper"
 RSpec.feature "Service browsing" do
   include OmniauthHelper
 
-  let(:user) { create(:user) }
+  scenario "shows services sorted by name" do
+    create(:service, title: "Service c")
+    create(:service, title: "Service b")
+    create(:service, title: "Service a")
+
+    visit services_path
+
+    expect(page.body.index("Service a")).to be < page.body.index("Service b")
+    expect(page.body.index("Service b")).to be < page.body.index("Service c")
+  end
+
+  scenario "limit number of services per page" do
+    create_list(:service, 2)
+
+    visit services_path(per_page: "1")
+
+    expect(page).to have_selector(".media", count: 1)
+  end
 
   context "as logged in user" do
+    let(:user) { create(:user) }
+
     before { checkin_sign_in_as(user) }
 
     scenario "allows to see details" do
@@ -153,7 +172,6 @@ RSpec.feature "Service browsing" do
                                           "description": "Please choose start date" }])
 
 
-    checkin_sign_in_as(user)
     visit service_path(offer.service)
     expect(page.body).to have_content("Number of CPU Cores")
     expect(page.body).to have_content("1 - 8")
@@ -195,302 +213,5 @@ RSpec.feature "Service browsing" do
 
       expect(page).to have_content "If you want to ask a question about this service please login"
     end
-  end
-end
-
-
-RSpec.feature "Service filtering and sorting" do
-  let!(:platform) { create(:platform) }
-  let!(:target_group) { create(:target_group) }
-
-  before(:each) do
-    platform_2 = create(:platform)
-    area = create(:research_area, name: "area 1")
-    provider = create(:provider, name: "first provider")
-    category_1 = create(:category)
-
-    service = create(:service,
-                     title: "AAAA Service",
-                     rating: 5.0,
-                     target_groups: [target_group],
-                     platforms: [platform],
-                     categories: [category_1])
-
-    service.providers << provider
-    service.research_areas << area
-
-    create(:service, title: "BBBB Service", rating: 3.0, target_groups: [target_group], platforms: [platform_2],
-           categories: [category_1])
-    create(:service, title: "CCCC Service", rating: 4.0, target_groups: [target_group], platforms: [platform_2],
-           categories: [category_1])
-    create(:service, title: "DDDD Something 1", rating: 4.1, platforms: [platform_2], categories: [category_1])
-    create(:service, title: "DDDD Something 2", rating: 4.0, platforms: [platform_2], categories: [category_1])
-    create(:service, title: "DDDD Something 3", rating: 3.9, platforms: [platform_2], categories: [category_1])
-
-    Service.reindex
-
-    sleep(1)
-  end
-
-  scenario "clear search visible" do
-    visit services_path(q: "DDDD Something")
-    expect(page).to have_css(".categories", text: "Looking for: DDDD Something")
-    expect(page).to have_selector(".search-clear")
-    find(:css, ".search-clear").click
-    expect(page).to have_css(".categories", text: "Services")
-    expect(page).not_to have_selector(".search-clear")
-  end
-
-  scenario "searching in top bar will preserve existing query params", js: true, search: true do
-    visit services_path(sort: "title")
-
-    fill_in "q", with: "DDDD Something"
-    click_on(id: "query-submit")
-    expect(page.body.index("<b>DDDD</b> <b>Something</b> 1")).to be < page.body.index("<b>DDDD</b> <b>Something</b> 2")
-    expect(page.body.index("<b>DDDD</b> <b>Something</b> 2")).to be < page.body.index("<b>DDDD</b> <b>Something</b> 3")
-
-    expect(page).to have_selector(".media", count: 3)
-  end
-
-  scenario "clicking filter button in side bar will preserve existing query params", js: true, search: true do
-    visit services_path(sort: "title", q: "DDDD Something", utf8: "✓")
-
-    click_on(id: "filter-submit")
-
-    expect(page.body.index("<b>DDDD</b> <b>Something</b> 1")).to be < page.body.index("<b>DDDD</b> <b>Something</b> 2")
-    expect(page.body.index("<b>DDDD</b> <b>Something</b> 2")).to be < page.body.index("<b>DDDD</b> <b>Something</b> 3")
-
-    expect(page).to have_selector(".media", count: 3)
-  end
-
-  scenario "selecting sorting will set query param and preserve existing ones", js: true do
-    visit services_path(q: "DDDD Something", utf8: "✓")
-
-    select "rate 1-5", from: "sort"
-
-    # For turbolinks to load
-    sleep(1)
-
-    expect(page.body.index("<b>DDDD</b> <b>Something</b> 3")).to be < page.body.index("<b>DDDD</b> <b>Something</b> 2")
-    expect(page.body.index("<b>DDDD</b> <b>Something</b> 2")).to be < page.body.index("<b>DDDD</b> <b>Something</b> 1")
-  end
-
-  scenario "limit number of services per page" do
-    create_list(:service, 2)
-
-    visit services_path(per_page: "1")
-
-    expect(page).to have_selector(".media", count: 1)
-  end
-
-
-  scenario "multiselect toggle", js: true do
-    visit services_path
-
-    find(:css, "a[href=\"#collapse_providers\"][role=\"button\"] h6").click
-
-    expect(page).to have_selector("input[name='providers[]']:not([style*=\"display: none\"])", count: 5)
-    click_on("Show 2 more")
-    expect(page).to have_selector("input[name='providers[]']:not([style*=\"display: none\"])", count: 7)
-    click_on("Show less")
-    expect(page).to have_selector("input[name='providers[]']:not([style*=\"display: none\"])", count: 5)
-  end
-
-  scenario "multiselect shows checked element regardless of toggle state", js: true do
-    visit services_path
-
-    find(:css, "a[href=\"#collapse_providers\"][role=\"button\"] h6").click
-
-    expect(page).to have_selector("input[name='providers[]']", count: 5)
-    click_on("Show 2 more")
-    expect(page).to have_selector("input[name='providers[]']", count: 7)
-    find(:css, "input[name='providers[]'][value='#{Provider.order(:name).last.id}']").set(true)
-    click_on(id: "filter-submit")
-
-    expect(page).to have_selector("input[name='providers[]']", count: 6)
-  end
-
-  scenario "multiselect does not show toggle button if everything is shown", js: true do
-    visit services_path
-
-    find(:css, "a[href=\"#collapse_providers\"][role=\"button\"] h6").click
-
-    expect(page).to have_selector("input[name='providers[]']", count: 5)
-    click_on("Show 2 more")
-    find(:css, "input[name='providers[]'][value='#{Provider.joins(:services)
-                                                      .order(:name)
-                                                      .group("providers.id")
-                                                      .order(:name)[-1].id}']").set(true)
-    find(:css, "input[name='providers[]'][value='#{Provider.joins(:services)
-                                                      .order(:name)
-                                                      .group("providers.id")
-                                                      .order(:name)[-2].id}']").set(true)
-    click_on(id: "filter-submit")
-
-    expect(page).to_not have_selector("#providers > a")
-  end
-
-  scenario "toggle button changes number of providers to show", js: true do
-    visit services_path
-
-    find(:css, "a[href=\"#collapse_providers\"][role=\"button\"] h6").click
-    # again - problem with animations, which should be disabled
-    sleep(1)
-
-    click_on("Show 2 more")
-    find(:css, "input[name='providers[]'][value='#{Provider.order(:name).last.id}']").set(true)
-    click_on(id: "filter-submit")
-
-    find(:css, "#collapse_providers > div > a", text: "Show 1 more")
-  end
-
-  scenario "expand all should expand all filters, including selected ones", js: true do
-    provider_id = Provider.order(:name).first.id
-    target_group_id = target_group.id
-
-    visit services_path
-    find(:css, "a[href=\"#collapse_providers\"][role=\"button\"] h6").click
-    find(:css, "input[name='providers[]'][value='#{provider_id}']").set(true)
-
-    click_on(id: "filter-submit")
-
-    expect(page).to have_selector(".collapseall.collapsed")
-    # provider controls should be visible
-    expect(page).to have_selector("input[name='providers[]'][value='#{provider_id}']")
-    find(:css, ".collapseall").click
-
-    expect(page).to have_selector("input[name='target_groups[]'][value='#{target_group_id}']")
-    # this is necessary for bootstrap animation to finish properly, kind of a hack
-    # possible solution is either to disable animations (might be a good idea)
-    sleep 1
-    # collapse all
-    find(:css, ".collapseall").click
-
-    expect(page).to_not have_selector("input[name='providers[]'][value='#{provider_id}']")
-    expect(page).to_not have_selector("input[name='target_groups[]'][value='#{target_group_id}']")
-  end
-
-  scenario "searching via providers", js: true do
-    provider_id = Provider.order(:name).first.id
-    visit services_path
-    find(:css, ".collapseall").click
-    sleep(1)
-    find(:css, "input[name='providers[]'][value='#{provider_id}']").set(true)
-    click_on(id: "filter-submit")
-    expect(page).to have_selector("input[name='providers[]'][value='#{provider_id}'][checked]")
-    expect(page).to have_selector(".media", count: Provider.order(:name).first.services.count)
-  end
-
-  scenario "searching via rating", js: true do
-    visit services_path
-
-    find(:css, "a[href=\"#collapse_rating\"][role=\"button\"] h6").click
-    select "★★★★★", from: "rating"
-    click_on(id: "filter-submit")
-
-    expect(page).to have_selector(".media", count: 1)
-  end
-
-  scenario "searching vis research_area" do
-    visit services_path
-    find(:css, "a[href=\"#collapse_research_areas\"][role=\"button\"] h6").click
-    find(:css, "input[name='research_areas[]'][value='#{ResearchArea.first.id}']").set(true)
-    click_on(id: "filter-submit")
-
-    expect(page).to have_selector(".media", count: 1)
-  end
-
-  scenario "searching via target_groups", js: true do
-    visit services_path
-    find(:css, "a[href=\"#collapse_target_groups\"][role=\"button\"] h6").click
-    find(:css, "input[name='target_groups[]'][value='#{target_group.id}']").set(true)
-    click_on(id: "filter-submit")
-
-    expect(page).to have_selector(".media", count: 3)
-    find(:css, "a[href=\"#collapse_target_groups\"][role=\"button\"] h6").click
-    expect(page).to have_selector("input[name='target_groups[]'][value='#{target_group.id}'][checked]")
-  end
-
-  scenario "searching via platforms", js: true do
-    visit services_path
-    find(:css, "a[href=\"#collapse_related_platforms\"][role=\"button\"] h6").click
-    find(:css, "input[name='related_platforms[]'][value='#{platform.id}']").set(true)
-    click_on(id: "filter-submit")
-
-    expect(page).to have_selector(".media", count: 1)
-  end
-
-  scenario "page query param should be reset after filtering", js: true do
-    create_list(:service, 40)
-    visit services_path(page: 3)
-    find(:css, "a[href=\"#collapse_related_platforms\"][role=\"button\"] h6").click
-    find(:css, "input[name='related_platforms[]'][value='#{platform.id}']").set(true)
-    click_on(id: "filter-submit")
-
-    expect(page.current_path).to_not have_content("page=")
-    expect(page).to have_selector(".media", count: 1)
-  end
-
-  scenario "should have 'All' link in categories with all services count" do
-    visit services_path
-
-    expect(page).to have_css("#all-services-link > span", text: Service.all.count)
-  end
-
-  scenario "delete all filters", js: true do
-    visit services_path(target_groups: [target_group.id])
-
-    # With filters applied
-    expect(page).to have_selector(".media", count: 3)
-
-    # click clear filters
-    click_on("Clear all filters")
-
-    expect(page).to have_css(".media", count: 6)
-  end
-
-  scenario "searching via location", js: true do
-    pending "add test after implementing location to filtering #{__FILE__}"
-    raise
-  end
-
-  scenario "remove active filters" do
-    visit services_path(related_platforms: [platform.id])
-    expect(page).to have_selector(".active-filters > *", count: 2)
-  end
-
-  scenario "After starting searching autocomplete are shown", js: true, search: true do
-    visit services_path
-
-    fill_in "q", with: "DDDD Something"
-
-    expect(page).to have_selector("li.dropdown-item[role='option']:not([style*=\"display: none\"]", count: 3)
-  end
-
-  scenario "redirect when selecting service_id by autocomplete controller", js: true, search: true do
-    service = Service.first
-    fill_in "q", with: service.title
-    find(:css, "li.dropdown-item[id='-option-0']").click
-    expect(current_path).to eq(service_path(service))
-  end
-
-  scenario "redirect when selecting service_id by autocomplete controller", js: true, search: true do
-    service = Service.first
-    visit services_path(service_id: service.id)
-    expect(current_path).to eq(service_path(service))
-  end
-end
-
-
-RSpec.feature "Service view" do
-  scenario "should by default sort services by name, ascending" do
-    create(:service, title: "Service c")
-    create(:service, title: "Service b")
-    create(:service, title: "Service a")
-
-    visit services_path
-
-    expect(page.body.index("Service a")).to be < page.body.index("Service b")
-    expect(page.body.index("Service b")).to be < page.body.index("Service c")
   end
 end
