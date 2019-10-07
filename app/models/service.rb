@@ -113,6 +113,7 @@ class Service < ApplicationRecord
   validates :logo, blob: { content_type: :image }
   validate :logo_variable, on: [:create, :update]
   validates :research_areas, presence: true
+  validate :children_research_areas
   validates :providers, presence: true
   validates :status, presence: true
   validates :order_target, allow_blank: true, email: true
@@ -163,5 +164,10 @@ class Service < ApplicationRecord
       self.helpdesk_url&.strip!
       self.tutorial_url&.strip!
       self.connected_url&.strip!
+    end
+
+    def children_research_areas
+      errors.add(:research_areas, "cannot contains parents") if
+          research_areas.any? { |ra| ResearchArea.leafs.exclude?(ra) }
     end
 end

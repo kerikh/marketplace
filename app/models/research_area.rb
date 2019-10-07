@@ -13,4 +13,30 @@ class ResearchArea < ApplicationRecord
   def self.names
     all.map(&:name)
   end
+
+  def self.leafs
+    all_childless
+  end
+
+  def self.leafs_with_nested_names
+    all_childless(true)
+  end
+
+
+  private
+
+    def self.all_childless(with_names = false, records = ResearchArea.arrange, parent_name = "", result = [])
+      records.each do |r, sub_r|
+        if sub_r.blank?
+          result << (with_names ? [name_with_path(parent_name, r.name), r] : r)
+        else
+          all_childless(with_names, sub_r, name_with_path(parent_name, r.name), result)
+        end
+      end
+      result
+    end
+
+    def self.name_with_path(parent, child, separator = " / ")
+      parent.blank? ? child : parent + separator + child
+    end
 end
