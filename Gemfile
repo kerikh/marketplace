@@ -5,7 +5,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
 ruby "2.5.1"
 
-gem "rails", "~> 5.2.0"
+gem "rails", "~> 7.1.5", ">= 7.1.5.2"
 gem "pg", ">= 0.18", "< 2.0"
 gem "puma", "~> 3.11"
 
@@ -18,20 +18,20 @@ gem "turbolinks", "~> 5", require: false
 gem "bootsnap", ">= 1.1.0", require: false
 gem "colorize", ">= 0.8.1", require: false
 
-gem "ancestry"
-gem "gretel"
+gem "ancestry", ">= 3.0.6"
+gem "gretel", ">= 4.0.0"
 gem "will_paginate", "~> 3.1.0"
 gem "will_paginate-bootstrap4"
 gem "simple_form"
-gem "friendly_id", "~> 5.2.0"
-gem "acts-as-taggable-on", "~> 6.0"
+gem "friendly_id", "~> 5.3.0"
+gem "acts-as-taggable-on", "~> 10.0", ">= 10.0.0"
 gem "countries"
 
-gem "activestorage-validator"
+gem "activestorage-validator", ">= 0.1.3"
 gem "image_processing", "~> 1.9.2"
 
 # turbo-charged counter caches
-gem "counter_culture", "~> 2.0"
+gem "counter_culture", "~> 2.2", ">= 2.2.0"
 
 # validation
 gem "valid_email2"
