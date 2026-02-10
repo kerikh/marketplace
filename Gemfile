@@ -38,7 +38,7 @@ gem "valid_email2"
 gem "json-schema"
 gem "validate_url", github: "perfectline/validates_url"
 
-gem "searchkick"
+gem "searchkick", ">= 3.1.3"
 gem "devise"
 gem "omniauth"
 gem "omniauth_openid_connect"
@@ -97,7 +97,7 @@ end
 gem "tzinfo-data", platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
 group :production do
-  gem "sentry-raven"
+  gem "sentry-raven", ">= 3.0.0"
   gem "faker", require: false
   gem "newrelic_rpm"
 end
